@@ -1,0 +1,113 @@
+@startuml atividades
+title Loja Didática — Diagrama de Atividades
+
+skinparam activity {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  ArrowColor #0d9488
+  StartColor #0d9488
+  EndColor #0d9488
+  DiamondBackgroundColor #FFF7ED
+  DiamondBorderColor #d97706
+}
+skinparam swimlaneBackgroundColor #F8FAFC
+skinparam swimlaneBorderColor #94a3b8
+
+|Visitante / Comprador|
+start
+
+:Acessa o site;
+
+if (Possui conta?) then (não)
+  :Preenche formulário de\ncadastro (nome, e-mail ×2,\ntelefone, senha ×2);
+  :Sistema valida dados\ne cria conta;
+  :Login automático;
+else (sim)
+  :Informa e-mail e senha;
+  :Sistema autentica\ne cria sessão (Cookie);
+endif
+
+:Navega / busca no Catálogo;
+:Seleciona produto e clica\n"+ Adicionar ao Carrinho";
+
+|Sistema|
+:Verifica se produto\njá está no carrinho;
+if (Produto já no carrinho?) then (sim)
+  :Incrementa quantidade;
+else (não)
+  :Cria novo ItemCarrinho;
+endif
+:Salva loja_carrinho.csv;
+
+|Visitante / Comprador|
+if (Adicionar mais itens?) then (sim)
+  :Retorna ao Catálogo;
+else (não)
+  :Acessa página do Carrinho;
+  if (Deseja remover algum item?) then (sim)
+    :Clica "Remover";
+    |Sistema|
+    :Remove item do carrinho\ne salva CSV;
+    |Visitante / Comprador|
+  else (não)
+  endif
+  :Clica "Finalizar e Gerar PIX";
+
+  |Sistema|
+  :Captura snapshot dos itens\n(preços atuais);
+  :Gera código único\ndo pedido (PED-XXXXXXXX);
+  :Gera código de rastreio\n(BRXXXXXXXXXXBR);
+  :Cria Pedido com\nstatus Pendente /\nSeparando o pedido;
+  :Salva loja_pedidos.csv;
+  :Limpa carrinho do usuário\ne salva CSV;
+  :Gera código PIX fictício\ne QR Code (Pillow + qrcode);
+  :Exibe tela PIX com QR Code;
+
+  |Visitante / Comprador|
+  :Comprador visualiza\nQR Code e código PIX;
+
+  |Administrador|
+  :Acessa lista de pedidos;
+  :Confirma recebimento\ndo pagamento;
+  :Atualiza status para "Pago"\ne avança rastreio;
+
+  |Visitante / Comprador|
+  :Acompanha status em\n"Meus Pedidos";
+
+  |Administrador|
+  :Atualiza rastreio:\nSeparando → Transportadora\n→ Em Entrega → Entregue;
+
+  |Visitante / Comprador|
+  if (Problema com o pedido?) then (sim)
+    :Clica "⚠ Reclamar"\nno pedido;
+    :Preenche descrição\nda reclamação;
+    |Sistema|
+    :Salva Reclamação\nstatus=Aberta em CSV;
+    |Administrador|
+    :Visualiza reclamação\nno painel;
+    :Responde e atualiza\nstatus (Concluída/Recusada);
+    |Visitante / Comprador|
+    :Visualiza resposta\nna página da reclamação;
+  else (não)
+  endif
+
+  if (Deseja cancelar pedido?) then (sim)
+    if (Pedido já foi enviado\nà transportadora?) then (sim)
+      :Sistema exibe aviso:\ncancelamento bloqueado;
+    else (não)
+      :Confirma cancelamento;
+      |Sistema|
+      if (Pagamento já confirmado?) then (sim)
+        :Informa estorno em\naté 5 dias úteis;
+      else (não)
+        :Informa que nenhum\nvalor será cobrado;
+      endif
+      :Remove pedido e reclamação\nassociada do CSV;
+    endif
+  else (não)
+  endif
+endif
+
+|Visitante / Comprador|
+stop
+@enduml

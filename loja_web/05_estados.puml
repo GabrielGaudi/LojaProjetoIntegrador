@@ -1,0 +1,105 @@
+@startuml estados
+title Loja Didática — Diagrama de Estados
+
+skinparam state {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  ArrowColor #0d9488
+  StartColor #0d9488
+  EndColor   #0f172a
+}
+skinparam note {
+  BackgroundColor #FFF7ED
+  BorderColor #d97706
+}
+
+' ═══════════════════════════════════════════════════════════════
+'  1. PEDIDO — dois estados ortogonais (pagamento + rastreio)
+' ═══════════════════════════════════════════════════════════════
+state "Pedido" as PEDIDO {
+
+  state "Status de Pagamento" as PAG {
+    [*]        --> Pendente       : Comprador finaliza a compra
+    Pendente   --> Pago           : Admin confirma o pagamento
+    Pago       --> [*]
+  }
+
+  state "Status de Rastreio / Entrega" as RAT {
+    [*]                         --> Separando_o_pedido          : Pedido criado
+    Separando_o_pedido          --> Entregue_a_transportadora   : Admin atualiza
+    Entregue_a_transportadora   --> Em_entrega                  : Admin atualiza
+    Em_entrega                  --> Entregue                    : Admin atualiza
+    Entregue                    --> [*]
+  }
+}
+
+note right of PAG
+  Comprador pode cancelar o pedido
+  somente quando rastreio está em
+  "Separando o pedido".
+  Se pago → aviso de estorno.
+end note
+
+note right of RAT
+  A partir de "Entregue à transportadora"
+  o cancelamento pelo comprador
+  fica bloqueado.
+end note
+
+' ═══════════════════════════════════════════════════════════════
+'  2. RECLAMAÇÃO
+' ═══════════════════════════════════════════════════════════════
+state "Reclamação" as RECL {
+  [*]       --> Aberta    : Comprador abre reclamação\n(vinculada a um pedido)
+  Aberta    --> Concluida : Admin responde e\nmarca como Concluída
+  Aberta    --> Recusada  : Admin rejeita\ne marca como Recusada
+  Concluida --> [*]
+  Recusada  --> [*]
+}
+
+note bottom of RECL
+  Uma reclamação por pedido.
+  Comprador visualiza status e
+  resposta do admin.
+  Excluída junto ao pedido
+  se o pedido for cancelado.
+end note
+
+' ═══════════════════════════════════════════════════════════════
+'  3. MENSAGEM (comprador → admin)
+' ═══════════════════════════════════════════════════════════════
+state "Mensagem" as MSG {
+
+  state "Ativa" as ATIVA {
+    [*]         --> Nao_Lida  : Comprador envia mensagem
+    Nao_Lida    --> Lida      : Admin acessa\npágina de Mensagens\n(marcação automática)
+  }
+
+  Ativa       --> Cancelada  : Comprador cancela\n(a qualquer momento)
+  Cancelada   --> [*]
+
+  note right of Ativa
+    Comprador vê badge:
+    • 👁 Aguardando leitura
+    • ✅ Lida
+  end note
+}
+
+note bottom of MSG
+  Mensagens canceladas ficam
+  visíveis no histórico do comprador
+  com badge "✕ Cancelada".
+  Não aparecem para o admin.
+end note
+
+' ═══════════════════════════════════════════════════════════════
+'  4. SESSÃO DE USUÁRIO
+' ═══════════════════════════════════════════════════════════════
+state "Sessão" as SESS {
+  [*]           --> Anonima       : Usuário acessa o site
+  Anonima       --> Autenticada   : Login bem-sucedido\n(Cookie sessao=token)
+  Autenticada   --> Anonima       : Logout ou\ncookie expirado
+  Autenticada   --> [*]
+}
+
+@enduml

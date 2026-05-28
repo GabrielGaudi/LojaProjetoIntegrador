@@ -1,0 +1,105 @@
+@startuml casos_de_uso
+title Loja Didática — Diagrama de Casos de Uso
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  ArrowColor #0d9488
+  ActorBackgroundColor #FFF7ED
+  ActorBorderColor #d97706
+}
+
+actor "Visitante"       as V
+actor "Comprador"       as C
+actor "Administrador"   as A
+
+C -|>  V : <<herda>>
+
+rectangle "Sistema — Loja Didática" {
+
+  package "Acesso Público" {
+    usecase "Ver Catálogo"      as UC01
+    usecase "Buscar Produtos"   as UC02
+    usecase "Registrar-se"      as UC03
+    usecase "Fazer Login"       as UC04
+  }
+
+  package "Área do Comprador" {
+    usecase "Fazer Logout"                 as UC05
+    usecase "Editar Perfil"                as UC06
+    usecase "Gerenciar Carrinho"           as UC07
+    usecase "Adicionar Item ao Carrinho"   as UC08
+    usecase "Remover Item do Carrinho"     as UC09
+    usecase "Finalizar Compra\n(gerar PIX + QR Code)" as UC10
+    usecase "Ver / Pagar Novamente (PIX)"  as UC11
+    usecase "Acompanhar Pedidos"           as UC12
+    usecase "Cancelar Pedido"              as UC13
+    usecase "Abrir Reclamação"             as UC14
+    usecase "Ver Status da Reclamação"     as UC15
+    usecase "Enviar Mensagem ao Admin"     as UC16
+    usecase "Cancelar Mensagem"            as UC17
+    usecase "Ver Histórico de Mensagens"   as UC18
+  }
+
+  package "Área Administrativa" {
+    usecase "Ver Painel (estatísticas)"    as UC19
+    usecase "Cadastrar Produto"            as UC20
+    usecase "Editar Produto"               as UC21
+    usecase "Excluir Produto"              as UC22
+    usecase "Upload e Redimensionar\nFoto do Produto" as UC23
+    usecase "Listar Usuários"              as UC24
+    usecase "Cadastrar Administrador"      as UC25
+    usecase "Editar Qualquer Usuário"      as UC26
+    usecase "Atualizar Status do Pedido\n(pagamento + rastreio)" as UC27
+    usecase "Responder Reclamação\n(alterar status + texto)" as UC28
+    usecase "Visualizar Mensagens\n(marca como lida)" as UC29
+  }
+}
+
+' Visitante
+V --> UC01
+V --> UC02
+V --> UC03
+V --> UC04
+
+' Comprador
+C --> UC05
+C --> UC06
+C --> UC07
+C --> UC10
+C --> UC11
+C --> UC12
+C --> UC13
+C --> UC14
+C --> UC15
+C --> UC16
+C --> UC17
+C --> UC18
+
+' Admin
+A --> UC05
+A --> UC06
+A --> UC19
+A --> UC20
+A --> UC21
+A --> UC22
+A --> UC24
+A --> UC25
+A --> UC26
+A --> UC27
+A --> UC28
+A --> UC29
+
+' Includes / Extends
+UC07 ..> UC08 : <<include>>
+UC07 ..> UC09 : <<include>>
+UC20 ..> UC23 : <<include>>
+UC21 ..> UC23 : <<extend>>
+UC10 ..> UC12 : <<extend>>
+UC13 ..> UC12 : <<include>>
+UC14 ..> UC12 : <<include>>
+UC11 ..> UC12 : <<extend>>
+
+@enduml

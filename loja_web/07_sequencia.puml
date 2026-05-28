@@ -1,0 +1,226 @@
+@startuml sequencia
+title Loja Didática — Diagramas de Sequência
+
+skinparam sequence {
+  ArrowColor #0d9488
+  ActorBorderColor #d97706
+  ActorBackgroundColor #FFF7ED
+  ParticipantBackgroundColor #EEF6FB
+  ParticipantBorderColor #0d9488
+  LifeLineBorderColor #94a3b8
+  BoxBackgroundColor #F8FAFC
+  BoxBorderColor #e2e8f0
+  NoteBackgroundColor #FEF9C3
+  NoteBorderColor #ca8a04
+}
+skinparam roundcorner 8
+
+' ═══════════════════════════════════════════════════════════════
+'  SEQUÊNCIA 1 — Fluxo Completo de Compra
+' ═══════════════════════════════════════════════════════════════
+== 1. Fluxo Completo de Compra ==
+
+actor       "Comprador"          as C
+participant "Browser"             as B
+participant "LojaHandler\n(GET)"  as GET
+participant "LojaHandler\n(POST)" as POST
+participant "Model\n(Memória)"    as M
+participant "CSV\n(Disco)"        as CSV
+participant "Pillow +\nqrcode"    as LIB
+
+C  -> B   : acessa /catalogo
+B  -> GET : GET /catalogo
+GET -> M  : consulta produtos[]
+M --> GET : lista de produtos
+GET --> B : 200 HTML catálogo\n(grid de cards)
+B --> C   : exibe catálogo
+
+C  -> B   : clica "+ Carrinho"\n(produto_id=N)
+B  -> POST: POST /carrinho/adicionar\n{produto_id=N}
+POST -> M : busca produto N
+M --> POST: produto encontrado
+POST -> M : verifica item existente\nno carrinho do usuário
+alt item já no carrinho
+  POST -> M : incrementa quantidade
+else item novo
+  POST -> M : cria novo ItemCarrinho
+end
+POST -> M  : salva carrinho
+M    -> CSV: grava loja_carrinho.csv
+POST --> B : 302 → /catalogo?msg=...
+B --> C    : exibe mensagem "Adicionado! 🛒"
+
+C  -> B   : acessa /carrinho
+B  -> GET : GET /carrinho
+GET -> M  : itens_do_carrinho(uid)
+M --> GET : lista de itens + totais
+GET --> B : 200 HTML carrinho
+
+C  -> B   : clica "Finalizar e Gerar PIX"
+B  -> POST: POST /carrinho/finalizar
+POST -> M : captura snapshot dos itens
+POST -> M : gera codigo_pedido único\n(PED-XXXXXXXX)
+POST -> M : gera codigo_rastreio\n(BRXXXXXXXXXXBR)
+POST -> M : cria Pedido\n{status_pagamento: Pendente,\nstatus_rastreio: Separando}
+M    -> CSV: grava loja_pedidos.csv
+POST -> M : remove itens do carrinho
+M    -> CSV: grava loja_carrinho.csv
+POST --> B : 302 → /pix?id=N
+
+B  -> GET : GET /pix?id=N
+GET -> M  : buscar_id(pedidos, N)
+M --> GET : dados do pedido
+GET -> LIB: gerar_qrcode_b64(\n  codigo_pix)
+LIB --> GET: PNG base64
+GET --> B : 200 HTML PIX com\nQR Code embutido
+B --> C   : exibe QR Code e\ncódigo copia-e-cola
+
+note over C, CSV
+  Comprador realiza pagamento externo.
+  Admin acessa /admin/pedidos e confirma.
+end note
+
+' ═══════════════════════════════════════════════════════════════
+'  SEQUÊNCIA 2 — Admin atualiza status do pedido
+' ═══════════════════════════════════════════════════════════════
+== 2. Admin Atualiza Status do Pedido ==
+
+actor       "Administrador"       as A
+participant "Browser"              as BA
+participant "LojaHandler"          as H2
+participant "Model\n(Memória)"     as M2
+participant "CSV\n(Disco)"         as CSV2
+
+A  -> BA  : acessa /admin/pedidos
+BA -> H2  : GET /admin/pedidos
+H2 -> M2  : consulta pedidos[]
+M2 --> H2 : lista de pedidos
+H2 --> BA : 200 HTML lista de pedidos
+
+A  -> BA  : clica "✏ Status"\n(pedido id=N)
+BA -> H2  : GET /admin/pedido/status?id=N
+H2 -> M2  : buscar_id(pedidos, N)
+M2 --> H2 : pedido encontrado
+H2 --> BA : 200 HTML formulário\nde status
+
+A  -> BA  : seleciona "Pago" e\n"Em entrega"; clica Salvar
+BA -> H2  : POST /admin/pedido/status\n{id, status_pagamento, status_rastreio}
+H2 -> M2  : valida status
+H2 -> M2  : atualiza pedido
+M2 -> CSV2: grava loja_pedidos.csv
+H2 --> BA : 302 → /admin/pedidos?msg=...
+BA --> A  : exibe confirmação
+
+' ═══════════════════════════════════════════════════════════════
+'  SEQUÊNCIA 3 — Comprador abre reclamação
+' ═══════════════════════════════════════════════════════════════
+== 3. Comprador Abre Reclamação ==
+
+actor       "Comprador"           as C3
+participant "Browser"              as B3
+participant "LojaHandler"          as H3
+participant "Model\n(Memória)"     as M3
+participant "CSV\n(Disco)"         as CSV3
+
+C3 -> B3  : clica "⚠ Reclamar"\nem Meus Pedidos
+B3 -> H3  : GET /meu-pedido/reclamacao?id=N
+H3 -> M3  : buscar_id(pedidos, N)
+H3 -> M3  : reclamacao_do_pedido(N)
+M3 --> H3 : sem reclamação existente
+H3 --> B3 : 200 HTML formulário\nde reclamação
+
+C3 -> B3  : preenche descrição\ne clica Enviar
+B3 -> H3  : POST /meu-pedido/reclamacao\n{pedido_id, texto}
+H3 -> M3  : valida texto
+H3 -> M3  : cria Reclamacao\n{status: Aberta}
+M3 -> CSV3: grava loja_reclamacoes.csv
+H3 --> B3 : 302 → /meu-pedido/reclamacao\n?id=N&msg=Enviada!
+B3 --> C3 : exibe reclamação\ncom status "Aberta"
+
+note over C3, CSV3
+  Admin vê reclamação em /admin/reclamacoes
+  com badge numérico de abertas na navbar.
+end note
+
+' ═══════════════════════════════════════════════════════════════
+'  SEQUÊNCIA 4 — Comprador envia mensagem / Admin lê
+' ═══════════════════════════════════════════════════════════════
+== 4. Mensagem Comprador → Admin ==
+
+actor       "Comprador"           as C4
+actor       "Administrador"       as A4
+participant "Browser (C)"          as B4C
+participant "Browser (A)"          as B4A
+participant "LojaHandler"          as H4
+participant "Model\n(Memória)"     as M4
+participant "CSV\n(Disco)"         as CSV4
+
+C4 -> B4C : acessa /minhas-mensagens
+B4C -> H4 : GET /minhas-mensagens
+H4 -> M4  : mensagens_do_usuario(uid)
+M4 --> H4 : lista de mensagens
+H4 --> B4C: 200 HTML (form + histórico)
+
+C4 -> B4C : digita mensagem\ne clica Enviar
+B4C -> H4 : POST /mensagem/nova\n{texto}
+H4 -> M4  : cria Mensagem\n{lida: "0", cancelada: "0"}
+M4 -> CSV4: grava loja_mensagens.csv
+H4 --> B4C: 302 → /minhas-mensagens\n?msg=Enviada!
+B4C --> C4: badge "👁 Aguardando leitura"
+
+A4 -> B4A : acessa /admin/mensagens
+B4A -> H4 : GET /admin/mensagens
+H4 -> M4  : filtra mensagens não canceladas
+H4 -> M4  : marca todas lida="0" → lida="1"
+M4 -> CSV4: grava loja_mensagens.csv
+H4 --> B4A: 200 HTML com\ntodas as mensagens
+
+note over A4, B4A
+  Próxima visita do comprador
+  à /minhas-mensagens mostrará
+  badge "✅ Lida" na mensagem.
+end note
+
+C4 -> B4C : acessa /minhas-mensagens\nnuma próxima visita
+B4C -> H4 : GET /minhas-mensagens
+H4 -> M4  : mensagens_do_usuario(uid)
+M4 --> H4 : mensagem com lida="1"
+H4 --> B4C: badge "✅ Lida" exibido
+
+' ═══════════════════════════════════════════════════════════════
+'  SEQUÊNCIA 5 — Upload de Foto de Produto
+' ═══════════════════════════════════════════════════════════════
+== 5. Admin faz Upload de Foto de Produto ==
+
+actor       "Administrador"       as A5
+participant "Browser"              as B5
+participant "LojaHandler"          as H5
+participant "Pillow"               as PIL
+participant "Sistema de\nArquivos" as FS5
+
+A5 -> B5  : acessa /admin/produto/novo
+B5 -> H5  : GET /admin/produto/novo
+H5 --> B5 : 200 HTML formulário\n(enctype="multipart/form-data")
+
+A5 -> B5  : preenche dados +\nseleciona arquivo de imagem
+B5 -> H5  : POST /admin/produto/novo\n(multipart/form-data)
+H5 -> H5  : _parse_multipart(body, boundary)\nextraí campos e bytes da imagem
+H5 -> PIL : processar_foto(dados_bytes)
+PIL -> PIL : Image.open() → valida formato\n(JPEG/PNG/GIF/WEBP/BMP)
+PIL -> PIL : img.convert("RGB")
+PIL -> PIL : ImageOps.fit(img, (400,300),\n  LANCZOS) — crop central
+PIL -> PIL : img.save(buf, "PNG", optimize=True)
+PIL --> H5 : bytes PNG (400×300)
+
+alt imagem inválida
+  H5 --> B5 : 200 HTML com mensagem\nde erro — produto não salvo
+else imagem válida
+  H5 -> H5  : gera codigo único (PRD-NNNNN)
+  H5 -> FS5 : salva FOTOS/PRD-NNNNN.png
+  H5 -> H5  : cria dict produto e\nadiciona à lista
+  H5 -> FS5 : grava loja_produtos.csv
+  H5 --> B5 : 302 → /admin/produtos\n?msg=Cadastrado!
+  B5 --> A5 : thumbnail da foto\nexibido na lista
+end
+
+@enduml

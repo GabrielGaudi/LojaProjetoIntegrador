@@ -1,0 +1,180 @@
+@startuml classes
+title Loja Didática — Diagrama de Classes
+
+skinparam class {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  ArrowColor #0d9488
+  HeaderBackgroundColor #0d9488
+  FontColor #1e293b
+  HeaderFontColor white
+}
+skinparam stereotypeCBackgroundColor #FFF7ED
+skinparam stereotypeCBorderColor #d97706
+skinparam linetype ortho
+
+' ── Enumerações ───────────────────────────────────────────────
+enum TipoUsuario {
+  admin
+  comprador
+}
+
+enum StatusPagamento {
+  Pendente
+  Pago
+}
+
+enum StatusRastreio {
+  Separando_o_pedido
+  Entregue_a_transportadora
+  Em_entrega
+  Entregue
+}
+
+enum StatusReclamacao {
+  Aberta
+  Concluida
+  Recusada
+}
+
+' ── Classes de dados (Model) ──────────────────────────────────
+class Usuario {
+  +id : int
+  +nome : str
+  +email : str
+  +telefone : str
+  +senha_hash : str  <<SHA-256>>
+  +tipo : TipoUsuario
+  --
+  +{static} hash_senha(s: str) : str
+  +{static} ok_email(e: str) : bool
+  +{static} ok_tel(t: str) : bool
+}
+
+class Produto {
+  +id : int
+  +codigo : str  <<PRD-NNNNN>>
+  +nome : str
+  +descricao : str
+  +preco : float
+  +prazo_entrega : str  <<N dias úteis>>
+  --
+  +foto_path : str  <<FOTOS/{codigo}.png>>
+  +{static} gerar_codigo() : str
+  +foto_existe() : bool
+}
+
+class ItemCarrinho {
+  +id : int
+  +usuario_id : int
+  +produto_id : int
+  +quantidade : int
+}
+
+class Pedido {
+  +id : int
+  +codigo_pedido : str  <<PED-XXXXXXXX>>
+  +codigo_rastreio : str  <<BRXXXXXXXXXXBR>>
+  +usuario_id : int
+  +itens_json : str  <<JSON snapshot>>
+  +total : float
+  +status_pagamento : StatusPagamento
+  +status_rastreio : StatusRastreio
+  +data : str  <<dd/mm/aaaa HH:MM>>
+  --
+  +{static} gerar_codigo_pedido() : str
+  +{static} gerar_codigo_rastreio() : str
+  +pode_cancelar() : bool
+}
+
+class Reclamacao {
+  +id : int
+  +pedido_id : int
+  +usuario_id : int
+  +texto : str
+  +status : StatusReclamacao
+  +resposta : str
+  +data : str
+}
+
+class Mensagem {
+  +id : int
+  +usuario_id : int
+  +texto : str
+  +lida : bool
+  +cancelada : bool
+  +data : str
+}
+
+class Sessao <<in-memory>> {
+  +token : str  <<UUID hex>>
+  +usuario_id : int
+  --
+  +{static} criar(uid: int) : str
+  +{static} destruir(token: str) : void
+  +{static} usuario_logado(token: str) : Usuario
+}
+
+' ── Classes de serviço ────────────────────────────────────────
+class PersistenciaCSV <<service>> {
+  +{static} salvar(lista, arquivo, campos) : void
+  +{static} carregar(arquivo, campos, conv) : list
+  +{static} carregar_tudo() : void
+}
+
+class ServicoFoto <<service>> {
+  +FOTO_W : int = 400
+  +FOTO_H : int = 300
+  +FORMATOS_ACEITOS : set
+  --
+  +{static} processar_foto(dados: bytes) : bytes
+  +{static} salvar_foto(codigo, dados_png) : void
+  +{static} foto_existe(codigo) : bool
+}
+
+class ServicoPIX <<service>> {
+  +{static} gerar_qrcode_b64(texto: str) : str
+  +{static} montar_codigo_pix(pedido: Pedido) : str
+}
+
+' ── Controller ────────────────────────────────────────────────
+class LojaHandler <<controller>> {
+  -_cookie() : str
+  -_u() : Usuario
+  -_resp(html, status, headers) : void
+  -_redir(url, headers) : void
+  -_post() : dict
+  -_login_req(tipo) : Usuario
+  -_editar_usuario(alvo, campos, pode_tipo) : str
+  --
+  +do_GET() : void
+  +do_POST() : void
+}
+
+' ── Relacionamentos ───────────────────────────────────────────
+Usuario "1" *-- "0..*" ItemCarrinho   : possui >
+Usuario "1" *-- "0..*" Pedido         : realiza >
+Usuario "1" *-- "0..*" Reclamacao     : abre >
+Usuario "1" *-- "0..*" Mensagem       : envia >
+Usuario "1" -- "0..*" Sessao          : autenticado via >
+
+Produto  "1" *-- "0..*" ItemCarrinho  : referenciado em >
+Pedido   "1" *-- "0..1" Reclamacao    : possui >
+
+Usuario  ..  TipoUsuario
+Pedido   ..  StatusPagamento
+Pedido   ..  StatusRastreio
+Reclamacao .. StatusReclamacao
+
+LojaHandler ..> Usuario       : gerencia
+LojaHandler ..> Produto       : gerencia
+LojaHandler ..> ItemCarrinho  : gerencia
+LojaHandler ..> Pedido        : gerencia
+LojaHandler ..> Reclamacao    : gerencia
+LojaHandler ..> Mensagem      : gerencia
+LojaHandler ..> Sessao        : usa
+LojaHandler ..> PersistenciaCSV : usa
+LojaHandler ..> ServicoFoto   : usa
+LojaHandler ..> ServicoPIX    : usa
+
+@enduml

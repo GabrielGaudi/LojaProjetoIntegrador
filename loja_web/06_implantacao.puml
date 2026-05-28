@@ -1,0 +1,110 @@
+@startuml implantacao
+title Loja Didática — Diagrama de Implantação
+
+skinparam node {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  FontColor #1e293b
+}
+skinparam rectangle {
+  BackgroundColor #F0FDF4
+  BorderColor #16a34a
+  FontColor #1e293b
+}
+skinparam component {
+  BackgroundColor #E0F2FE
+  BorderColor #0369a1
+  FontColor #1e293b
+}
+skinparam artifact {
+  BackgroundColor #FFF7ED
+  BorderColor #d97706
+}
+skinparam database {
+  BackgroundColor #FEF3C7
+  BorderColor #d97706
+}
+skinparam folder {
+  BackgroundColor #FEF9C3
+  BorderColor #ca8a04
+}
+skinparam note {
+  BackgroundColor #F8FAFC
+  BorderColor #94a3b8
+}
+
+' ── No cliente ────────────────────────────────────────────────
+
+node "Dispositivo do Usuario\n(PC / notebook / smartphone)" as CLIENT {
+  component "Navegador Web\n(Chrome, Firefox, Safari)" as BROWSER
+  artifact  "Cookie de Sessao\n(sessao=token UUID)" as COOKIE
+}
+
+' ── No servidor ───────────────────────────────────────────────
+
+node "Servidor Python\n(Linux / Windows / macOS)" as SERVER {
+
+  rectangle "loja_web.py - processo unico" as APP {
+    component "HTTPServer\n(http.server stdlib)\nporta aleatoria 18000-28000" as HTTP_SRV
+    component "LojaHandler\n(Controller MVC)" as HANDLER
+    component "Model\n(listas em memoria)" as MODEL
+    component "View\n(geradores HTML)" as VIEW
+  }
+
+  rectangle "Bibliotecas externas" as LIBS {
+    component "Pillow 10+\n(processamento de imagens)" as PILLOW
+    component "qrcode[pil]\n(geracao de QR Code PIX)" as QRCODE
+  }
+
+  folder "Dados CSV" as CSV_DIR {
+    database "loja_usuarios.csv"    as CSV_U
+    database "loja_produtos.csv"    as CSV_P
+    database "loja_carrinho.csv"    as CSV_C
+    database "loja_pedidos.csv"     as CSV_PED
+    database "loja_reclamacoes.csv" as CSV_R
+    database "loja_mensagens.csv"   as CSV_M
+  }
+
+  folder "FOTOS" as FOTOS_DIR {
+    artifact "PRD-NNNNN.png\n(400 x 300 px, PNG)" as PNG_FILES
+  }
+
+  artifact "loja_web.py" as PY_FILE
+}
+
+' ── Ligacoes ──────────────────────────────────────────────────
+
+CLIENT    -->  SERVER    : HTTP 1.1 (LAN ou 127.0.0.1)
+
+HTTP_SRV  -->  HANDLER   : despacha requisicao
+HANDLER   -->  MODEL     : le / grava dados
+HANDLER   -->  VIEW      : solicita HTML
+HANDLER   -->  PILLOW    : processa upload de foto
+HANDLER   -->  QRCODE    : gera QR Code base64
+
+MODEL     -->  CSV_DIR   : leitura e escrita
+PILLOW    -->  FOTOS_DIR : salva PNG redimensionado
+HANDLER   -->  FOTOS_DIR : serve GET /fotos/PRD-*.png
+VIEW      -->  BROWSER   : HTML + CSS + QR base64
+
+' ── Notas ─────────────────────────────────────────────────────
+
+note right of SERVER
+  Requisitos:
+    python 3.10+
+    pip install Pillow "qrcode[pil]"
+
+  Execucao:
+    python loja_web.py
+    Porta sorteada em 18000-28000
+    URL exibida no console
+end note
+
+note right of CLIENT
+  Acesso:
+    http://(IP):(porta)
+  Admin padrao:
+    admin@loja.com / admin123
+end note
+
+@enduml

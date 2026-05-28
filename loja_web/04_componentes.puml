@@ -1,0 +1,118 @@
+@startuml componentes
+title Loja Didática — Diagrama de Componentes
+
+skinparam component {
+  BackgroundColor #EEF6FB
+  BorderColor #0d9488
+  ArrowColor #0d9488
+  FontColor #1e293b
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #94a3b8
+}
+skinparam database {
+  BackgroundColor #FFF7ED
+  BorderColor #d97706
+}
+skinparam node {
+  BackgroundColor #F0FDF4
+  BorderColor #16a34a
+}
+skinparam folder {
+  BackgroundColor #FEF3C7
+  BorderColor #d97706
+}
+skinparam linetype ortho
+
+' ── Cliente ───────────────────────────────────────────────────
+node "Navegador Web (Cliente)" as CLIENT {
+  component [Motor de\nRenderização HTML] as BROWSER
+  component [Formulários HTTP\n(GET / POST)] as FORMS
+}
+
+' ── Servidor ──────────────────────────────────────────────────
+node "Servidor Python (loja_web.py)" as SERVER {
+
+  package "Camada Controller" {
+    component [LojaHandler\n(do_GET / do_POST)] as CTR
+    component [Roteamento de URLs\n(urlparse + path matching)] as ROUTER
+    component [Gerenciador de Sessão\n(Cookie HTTP / dict sessoes)] as SESSION
+    component [Parser Multipart\n(_parse_multipart)] as MULTIPART
+  }
+
+  package "Camada View" {
+    component [Gerador HTML\n(html_*() functions)] as VIEW
+    component [Templates CSS\n(_CSS string)] as CSS
+    component [Helpers HTML\n(_h, _msg, _badge_*, _nav_html)] as HELPERS
+  }
+
+  package "Camada Model" {
+    component [Listas em Memória\n(usuarios, produtos,\ncarrinho, pedidos,\nreclamacoes, mensagens)] as LISTS
+    component [Persistência CSV\n(_salvar / _carregar)] as CSV_SVC
+    component [Gerenciador de Fotos\n(processar_foto,\nsalvar_foto, foto_existe)] as FOTO_SVC
+    component [Gerador PIX + QR Code\n(gerar_qrcode_b64,\nmontar_codigo_pix)] as PIX_SVC
+  }
+
+  package "Bibliotecas Python (stdlib)" {
+    component [http.server\n(HTTPServer,\nBaseHTTPRequestHandler)] as HTTP_LIB
+    component [csv, os, io,\nrandom, uuid, hashlib,\nbase64, json, re] as STDLIB
+  }
+
+  package "Bibliotecas Externas" {
+    component [Pillow (PIL)\nImage, ImageOps, ImageDraw] as PILLOW
+    component [qrcode\n(QRCode, make_image)] as QRLIB
+  }
+}
+
+' ── Sistema de Arquivos ───────────────────────────────────────
+node "Sistema de Arquivos Local" as FS {
+  database "loja_usuarios.csv"    as CSV_U
+  database "loja_produtos.csv"    as CSV_P
+  database "loja_carrinho.csv"    as CSV_C
+  database "loja_pedidos.csv"     as CSV_PED
+  database "loja_reclamacoes.csv" as CSV_R
+  database "loja_mensagens.csv"   as CSV_M
+  folder   "FOTOS/\n{codigo}.png" as FOTOS
+}
+
+' ── Interfaces ────────────────────────────────────────────────
+interface "HTTP\n(porta aleatória\n18000–28000)" as IHTTP
+interface "CSV I/O\n(leitura/escrita)" as ICSV
+interface "File I/O\n(imagens PNG)" as IFILE
+
+' ── Conexões ──────────────────────────────────────────────────
+CLIENT   -down-> IHTTP    : requisições\nHTTP 1.1
+IHTTP    -down-> HTTP_LIB
+HTTP_LIB -down-> CTR
+
+CTR -right-> ROUTER
+CTR -down->  SESSION
+CTR -down->  MULTIPART
+CTR -right-> VIEW
+VIEW -down-> CSS
+VIEW -down-> HELPERS
+CTR -down-> LISTS
+CTR -down-> FOTO_SVC
+CTR -down-> PIX_SVC
+
+LISTS  -down-> CSV_SVC
+PILLOW <-down- FOTO_SVC
+QRLIB  <-down- PIX_SVC
+
+CSV_SVC  -down-> ICSV
+ICSV     -down-> CSV_U
+ICSV     -down-> CSV_P
+ICSV     -down-> CSV_C
+ICSV     -down-> CSV_PED
+ICSV     -down-> CSV_R
+ICSV     -down-> CSV_M
+
+FOTO_SVC -down-> IFILE
+IFILE    -down-> FOTOS
+
+CTR      -right-> STDLIB
+
+VIEW     -up-> CLIENT  : HTML + CSS\n(inline base64 QR)
+
+@enduml
