@@ -58,7 +58,7 @@ PASTA_FOTOS      = "FOTOS"
 FOTO_W, FOTO_H = 400, 300
 
 CAMPOS_USUARIOS    = ["id","nome","email","telefone","senha_hash","tipo"]
-CAMPOS_PRODUTOS    = ["id","codigo","nome","descricao","preco","prazo_entrega"]
+CAMPOS_PRODUTOS    = ["id","codigo","nome","descricao","preco","prazo_entrega","link_fabricante"]
 CAMPOS_CARRINHO    = ["id","usuario_id","produto_id","quantidade"]
 CAMPOS_PEDIDOS     = ["id","codigo_pedido","codigo_rastreio","usuario_id",
                       "itens_json","total","status_pagamento","status_rastreio","data"]
@@ -176,11 +176,11 @@ def inicializar_dados():
         salv_usuarios(); print("  👤  Admin padrão: admin@loja.com / admin123")
     if not produtos:
         demos = [(1,"PRD-10001","Camiseta Básica",
-                  "Camiseta 100% algodão, disponível em várias cores.",49.90,"5 dias úteis"),
+                  "Camiseta 100% algodão, disponível em várias cores.",49.90,"5 dias úteis", "https://uwu.com.br"),
                  (2,"PRD-10002","Caneca Térmica 500ml",
-                  "Caneca de aço inox com tampa hermética.",89.90,"7 dias úteis"),
+                  "Caneca de aço inox com tampa hermética.",89.90,"7 dias úteis", "https://uwu.com.br"),
                  (3,"PRD-10003","Mochila para Notebook",
-                  "Mochila impermeável para notebook até 15.6\".",199.90,"10 dias úteis")]
+                  "Mochila impermeável para notebook até 15.6\".",199.90,"10 dias úteis", "https://uwu.com.br")]
         for pid,cod,nome,desc,preco,prazo in demos:
             produtos.append({"id":pid,"codigo":cod,"nome":nome,
                              "descricao":desc,"preco":preco,"prazo_entrega":prazo})
@@ -344,6 +344,8 @@ _CSS = """
   .prod-card .pdesc{font-size:.78rem;color:var(--muted);flex:1;line-height:1.4}
   .prod-card .ppreco{font-size:1.1rem;font-weight:700;color:var(--primary);margin-top:4px}
   .prod-card .pprazo{font-size:.73rem;color:var(--muted)}
+  .prod-card .plink a{font-size:.73rem;color:var(--text);text-decoration:none}
+  .prod-card .plink a:hover{;color:var(--primary);text-decoration:none}
   .prod-card .pfoot{padding:0 14px 14px}
   .cart-item{display:flex;align-items:center;gap:14px;
              padding:12px 0;border-bottom:1px solid var(--border)}
@@ -570,6 +572,7 @@ def html_catalogo(usuario, lista, busca="", msg=""):
                 f'<div class="pdesc">{_h(p["descricao"])}</div>'
                 f'<div class="ppreco">R$ {float(p["preco"]):.2f}</div>'
                 f'<div class="pprazo">⏱ {_h(p["prazo_entrega"])}</div>'
+                f'<div class="plink"><a href="{_h(p["link_fabricante"])}">Acessar pagina do fabricante</a></div>'
                 f'</div>{acao}</div>')
     if not cards: cards='<p style="color:var(--muted);padding:20px 0">Nenhum produto encontrado.</p>'
     limpar=f'<a class="btn btn-sec" href="/catalogo">✕ Limpar</a>' if busca else ""
@@ -896,6 +899,7 @@ def html_admin_form_produto(usuario, produto=None, erro=""):
            f'<input type="number" min="1" max="999" name="prazo_dias" value="{dias}" required>'
            f'<span>dias úteis</span></div>'
            f'<small>O prazo será sempre exibido em dias úteis.</small></div>'
+           f'<div class="field"><label>Link Fabricante</label><input name="link" value="{v("link_fabricante")}"></div>'
            f'<div class="row-btn" style="margin-top:16px">'
            f'<button class="btn btn-primary" type="submit">{"💾 Salvar" if produto else "📦 Cadastrar"}</button>'
            f'<a class="btn btn-sec" href="/admin/produtos">Cancelar</a>'
