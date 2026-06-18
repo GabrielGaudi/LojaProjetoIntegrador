@@ -4,7 +4,7 @@ Loja Online Didática
 ====================
 python -m venv .
 source bin/activate
-
+print
 Dependências:  
 pip install pillow 
 pip install qrcode
@@ -176,14 +176,14 @@ def inicializar_dados():
         salv_usuarios(); print("  👤  Admin padrão: admin@loja.com / admin123")
     if not produtos:
         demos = [(1,"PRD-10001","Camiseta Básica",
-                  "Camiseta 100% algodão, disponível em várias cores.",49.90,"5 dias úteis", "https://uwu.com.br"),
+                  "Camiseta 100% algodão, disponível em várias cores.",49.90,"5 dias úteis", "https://www.hering.com.br/"),
                  (2,"PRD-10002","Caneca Térmica 500ml",
-                  "Caneca de aço inox com tampa hermética.",89.90,"7 dias úteis", "https://uwu.com.br"),
+                  "Caneca de aço inox com tampa hermética.",89.90,"7 dias úteis", "https://www.nespresso.com/br/pt/home"),
                  (3,"PRD-10003","Mochila para Notebook",
-                  "Mochila impermeável para notebook até 15.6\".",199.90,"10 dias úteis", "https://uwu.com.br")]
-        for pid,cod,nome,desc,preco,prazo in demos:
+                  "Mochila impermeável para notebook até 15.6\".",199.90,"10 dias úteis", "https://www.lenovo.com/br/pt")]
+        for pid,cod,nome,desc,preco,prazo,link in demos:
             produtos.append({"id":pid,"codigo":cod,"nome":nome,
-                             "descricao":desc,"preco":preco,"prazo_entrega":prazo})
+                             "descricao":desc,"preco":preco,"prazo_entrega":prazo, "link_fabricante":link})
         salv_produtos(); print("  📦  3 produtos demo criados.")
 
 # ── Sessão / Carrinho ─────────────────────────────────────────────────────────
@@ -574,6 +574,7 @@ def html_catalogo(usuario, lista, busca="", msg=""):
                 f'<div class="pprazo">⏱ {_h(p["prazo_entrega"])}</div>'
                 f'<div class="plink"><a href="{_h(p["link_fabricante"])}">Acessar pagina do fabricante</a></div>'
                 f'</div>{acao}</div>')
+
     if not cards: cards='<p style="color:var(--muted);padding:20px 0">Nenhum produto encontrado.</p>'
     limpar=f'<a class="btn btn-sec" href="/catalogo">✕ Limpar</a>' if busca else ""
     corpo=(f"<h2>🛍 Catálogo</h2>{_msg(msg,'ok')}"
@@ -1451,11 +1452,13 @@ class LojaHandler(BaseHTTPRequestHandler):
         # ── Admin: CRUD produtos ───────────────────────────────────────────
         elif path=="/admin/produto/novo":
             if not u or u["tipo"]!="admin": self._redir("/"); return
-            nome=_f("nome"); desc=_f("descricao"); arq=_arq("foto")
+            nome=_f("nome"); desc=_f("descricao"); arq=_arq("foto"); link=_f("link")
+
             try:    preco=float(_f("preco").replace(",","."))
             except: preco=-1.0
             try:    dias=int(_f("prazo_dias")); assert dias>=1
             except: dias=0
+            
             if not nome or preco<0 or dias<1:
                 self._resp(html_admin_form_produto(u,erro="⚠ Nome, preço (≥ 0) e prazo (≥ 1 dia) são obrigatórios.")); return
             prazo=f"{dias} dias úteis"
@@ -1468,7 +1471,7 @@ class LojaHandler(BaseHTTPRequestHandler):
                     self._resp(html_admin_form_produto(u,erro=f"⚠ Imagem inválida. Aceitos: {', '.join(sorted(FORMATOS_ACEITOS))}.")); return
                 salvar_foto(cod,png)
             novo={"id":prox_id(produtos),"codigo":cod,"nome":nome,
-                  "descricao":desc,"preco":round(preco,2),"prazo_entrega":prazo}
+                  "descricao":desc,"preco":round(preco,2),"prazo_entrega":prazo, "link_fabricante":link}
             produtos.append(novo); salv_produtos()
             self._redir(f"/admin/produtos?msg={quote_plus('«'+nome+'» cadastrado! Código: '+cod+' ✅')}")
 
