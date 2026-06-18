@@ -62,6 +62,7 @@ class Produto {
   +foto_path : str  <<FOTOS/{codigo}.png>>
   +{static} gerar_codigo() : str
   +foto_existe() : bool
+  +link_fornecedor : str
 }
 
 class ItemCarrinho {
